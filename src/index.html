@@ -1,0 +1,354 @@
+<!--
+Project logic credits to:
+Jos Stam:  http://www.dgp.toronto.edu/people/stam/reality/Research/pdf/GDC03.pdf (if link is broken search for his academic works, they are brilliant)
+Oliver Hunt: https://nerget.com/fluidSim/ (incredible exemplar for the implementation of Jos Stam's work)
+Evgeny Demidov: https://www.ibiblio.org/e-notes/webgl/gpu/fluid.htm (exemplar using webgl)
+Karl Sims: https://www.karlsims.com/fluid-flow.html (interpretation of Jos Stam's works)
+-->
+
+<!doctype HTML>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+        <link id="cssTheme" rel="stylesheet" href="styling.css"/>
+        <style>
+            body {
+                background: darkblue;
+                color: white;
+                font-family: Helvetica;
+            }
+        </style>
+        <script src="logic.js"></script>
+        <script src="display.js"></script>
+        <script>
+            onmouseup = function() { mouseIsDown = false; }
+            var frames = 0;
+            var force = 5;
+            var source = 100;
+            var sources = [];
+            var omx, omy;
+            var mx, my;
+            var mouseIsDown = false;
+            var res;
+            var displaySize = 650;
+            var fieldRes;
+            var canvas;
+            function prepareFrame(field) // controls sources as well
+            {
+                var canvas = document.getElementById("canvas");
+                let flagState = field.getFlagState();
+                if ((omx >= 0 && omx < displaySize && omy >= 0 && omy < displaySize) && mouseIsDown) { // activated when mousedown only
+                    var dx = mx - omx;
+                    var dy = my - omy;
+                    var length = (Math.sqrt(dx * dx + dy * dy) + 0.5) | 0;
+                    if (length < 1) length = 1;
+                    for (var i = 0; i < length; i++) {
+                        var x = (((omx + dx * (i / length)) / displaySize) * field.width()) | 0
+                        var y = (((omy + dy * (i / length)) / displaySize) * field.height()) | 0;
+                        field.setVelocity(x, y, dx, dy);
+                        field.setDensity(x, y, 100);
+                    }
+                    omx = mx;
+                    omy = my;
+                } 
+
+                let localX = undefined;
+                let localY = undefined;
+                let localDensity = 100;
+                let localVelocityU = 0;
+                let localVelocityV = 0;
+                
+
+                if (flagState){
+                    if (flagState === "free"){
+                        //dont do anything
+                    
+                    } else if (flagState === "heart"){
+                        localX = 5;
+                        localY = field.height()/2;
+                        localDensity = 100;
+                        localVelocityU = 1;
+                        localVelocityV = 0;
+
+                        for (let tweaking = 0; tweaking < 5; ++tweaking){ // set stream of config sources 
+                            field.setDensity(localX, localY + tweaking, localDensity);
+                            field.setVelocity(localX, localY + tweaking, localVelocityU, localVelocityV);
+                        }
+                    } else if (flagState === "doubleHeart"){
+                        //leftSource
+                        localX = 5;
+                        localY = field.height()/2;
+                        localDensity = 100;
+                        localVelocityU = 1;
+                        localVelocityV = 0;
+
+                        for (let tweaking = 0; tweaking < 5; ++tweaking){ // set stream of config sources 
+                            field.setDensity(localX, localY + tweaking, localDensity);
+                            field.setVelocity(localX, localY + tweaking, localVelocityU, localVelocityV);
+                        }
+
+                        //rightSource
+                        localX = field.width() - 5;
+                        localY = field.height()/2;
+                        localDensity = 100;
+                        localVelocityU = -1;
+                        localVelocityV = 0;
+
+                        for (let tweaking = 0; tweaking < 5; ++tweaking){ // set stream of config sources 
+                            field.setDensity(localX, localY + tweaking, localDensity);
+                            field.setVelocity(localX, localY + tweaking, localVelocityU, localVelocityV);
+                        }
+                    } else if (flagState === "opposingSources" || flagState === "fourWaySources"){
+                        //opposing sources left right
+                        //leftSource
+                        localX = 90;
+                        localY = field.height()/2;
+                        localDensity = 60;
+                        localVelocityU = 0.5;
+                        localVelocityV = 0;
+
+                        for (let tweaking = 0; tweaking < 3; ++tweaking){ // set stream of config sources 
+                            field.setDensity(localX, localY + tweaking, localDensity);
+                            field.setVelocity(localX, localY + tweaking, localVelocityU, localVelocityV);
+                        }
+
+                        //rightSource
+                        localX = field.width() - 90;
+                        localY = field.height()/2;
+                        localDensity = 60;
+                        localVelocityU = -0.5;
+                        localVelocityV = 0;
+
+                        for (let tweaking = 0; tweaking < 3; ++tweaking){ // set stream of config sources 
+                            field.setDensity(localX, localY + tweaking, localDensity);
+                            field.setVelocity(localX, localY + tweaking, localVelocityU, localVelocityV);
+                        }
+
+                        if (flagState === "fourWaySources"){
+                            //opposing source top and bottom
+                                //topSource
+                            localX = field.width()/2;
+                            localY = 70;
+                            localDensity = 60;
+                            localVelocityU = 0;
+                            localVelocityV = 0.5;
+
+                            for (let tweaking = 0; tweaking < 3; ++tweaking){ // set stream of config sources 
+                                field.setDensity(localX, localY + tweaking, localDensity);
+                                field.setVelocity(localX, localY + tweaking, localVelocityU, localVelocityV);
+                            }
+
+                            //bottomSource
+                            localX = field.width()/2;
+                            localY = field.height() - 70;
+                            localDensity = 60;
+                            localVelocityU = 0;
+                            localVelocityV = -0.5;
+
+                            for (let tweaking = 0; tweaking < 3; ++tweaking){ // set stream of config sources 
+                                field.setDensity(localX, localY + tweaking, localDensity);
+                                field.setVelocity(localX, localY + tweaking, localVelocityU, localVelocityV);
+                            }
+
+                        }
+                    } 
+                }
+
+                //for source placement change velocities etc as well 
+                localVelocityU = Number(document.getElementById("horizontalSourceVelocity").value);
+                localVelocityV = Number(document.getElementById("verticalSourceVelocity").value);
+                localDensity = Number(document.getElementById("sourceDensity").value);
+
+                for (var i = 0; i < sources.length; i++) { // mouse control for source placement 
+                        
+                        var x = ((sources[i][0] / displaySize) * field.width()) | 0;
+                        var y = ((sources[i][1] / displaySize) * field.height()) | 0;
+                        console.log(x);
+                        console.log(y);
+                        field.setDensity(x, y, localDensity);
+                        if (i % 2 == 0){
+                            field.setVelocity(x,y,localVelocityU,localVelocityV);
+                        } 
+                }
+            }
+            var running = false;
+            function stopAnimation() {
+                running = false;
+                clearTimeout(interval);
+            }
+            function startAnimation() {
+                if (running)
+                    return;
+                running=true;
+                interval = setTimeout(updateFrame, 5);
+            }
+            var start = new Date;
+            var frames = 0;
+            function updateFrame() {
+                field.update();
+                var end = new Date;
+                frames++;
+                if ((end - start) > 1000) {
+                    start = end;
+                    frames=0;
+                }
+                if (running)
+                    interval = setTimeout(updateFrame, 10);
+            }
+            var options = {};
+            try {
+                options = JSON.parse(location.search.substring(1));
+            } catch(e) {
+            }
+            
+            window.onload=function(){
+                canvas = document.getElementById("canvas");
+                field = new FluidField(canvas);
+                document.getElementById("iterations").value = 25;
+                field.setUICallback(prepareFrame);
+                var r = 256;
+                canvas.width = r;
+                canvas.height = r;
+                fieldRes = r;
+                field.setResolution(r, r);  
+                function getTopLeftOfElement(element) {
+                    var top = 0;
+                    var left = 0;
+                    do {
+                      top += element.offsetTop;
+                      left += element.offsetLeft;
+                    } while(element = element.offsetParent);
+                    return {left: left, top: top};
+                }
+            
+                canvas.onmousedown = function(event) {
+                    var o = getTopLeftOfElement(canvas);
+                    omx = mx = event.clientX - o.left;
+                    omy = my = event.clientY - o.top;
+                    if (!event.altKey && event.button == 0)
+                        mouseIsDown = true;
+                    else
+                        sources.push([mx, my]);
+                    event.preventDefault();
+                    return false;
+                }
+                canvas.onmousemove = function(event) {
+                    var o = getTopLeftOfElement(canvas);
+                    mx = event.clientX - o.left;
+                    my = event.clientY - o.top;
+                }
+                field.setDisplayFunction(toggleDisplayFunction(canvas));
+                startAnimation();
+            }
+        </script>
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx" crossorigin="anonymous"></script>
+    </head>
+    <body>
+        <div id='navbarDiv'>
+            <nav class="navbar navbar-inverse">
+              <div class="container-fluid">
+                <div class="navbar-header">
+                  <a id="refreshButton" class="navbar-brand" href="#">Fluid Dynamics Visualizer</a>
+                </div>
+
+                <div class="col-lg-3 align-self-center" style="margin-right: 5%;" >
+                    <p style="font-size: medium;"> Configuration:</p>
+                    <p id="stateHeader" style="font-weight: bold; font-size: x-large; align-items: center;">Free draw canvas</p>
+                </div>
+
+                <ul class="nav navbar-nav">
+                    <div class="dropdown">
+                        <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenu2" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                          Configurations
+                        </button>
+                        <div class="dropdown-menu" >
+                          <button class="navButton" id="buttonFree" onclick="field.reset('free'); frames=0; sources = [];">
+                            <img id = "free_img" class="navBar-images" src="media/blank_free.PNG"/> 
+                          </button>  
+                          <button class="navButton" id="buttonHeart" onclick="field.reset('heart'); frames = 0; sources = [];">
+                            <img id = "center_heart_karmanVortex_img" class="navBar-images" src="media/center_heart_karmanVortex.PNG"/> 
+                          </button>    
+                          <button class="navButton" id="buttonDoubleHeart" onclick="field.reset('doubleHeart'); frames = 0; sources = [];">
+                            <img id = "doubleHeart_img" class="navBar-images" src="media/doubleHeart.PNG"/> 
+                          </button>   
+                          <button class="navButton" id="opposingSources" onclick="field.reset('opposingSources'); frames = 0; sources = [];">
+                            <img id = "opposingSources_img" class="navBar-images" src="media/opposingSources.PNG"/> 
+                          </button>   
+                          <button class="navButton" id="fourWaySources" onclick="field.reset('fourWaySources'); frames = 0; sources = [];">
+                            <img id = "fourWaySources_img" class="navBar-images" src="media/fourWaySources.PNG"/> 
+                          </button>   
+                
+                        </div>
+                      </div>
+                </ul>
+              </div>
+            </nav>
+        </div>
+
+                    <div class="container-fluid">
+                        <div class="row justify-content-md-center">
+                            <div class="col-lg-2 align-self-center">
+                                <div class="row justify-content-md-center">
+                                    <button type="button" class = "btn btn-primary" style="font-size: large ;" onclick="startAnimation()">Start simulation</button>
+                                </div>
+                                <div class="row"></br> </div>
+                                <div class="row justify-content-md-center">
+                                    <button type="button" class = "btn btn-primary" style="font-size: large ;" onclick="stopAnimation()">Stop simulation</button>
+                                </div>
+                                <div class="row"></br> </div>
+                                <div class="row justify-content-md-center">
+                                    <button type="button" class = "btn btn-primary" style="font-size: large ;" onclick="field.reset(); frames = 0; sources = [];">Reset simulation</button><br />
+                                </div>
+
+                            </div>
+                            <div class="col-lg-5 align-self-center">
+                                <canvas id=canvas style="width: 650px; height: 650px;" width=650 height=650></canvas>
+                            </div>
+                            <div class="col-lg-2 align-self-center">
+                                <div >
+                                </br>
+                               <p>Note source controls do not change configuration streams</p>
+                                </div>
+                                <div id = "sliderText" class="row justify-content-md-center">
+                                    <p>Source density/concentration:</p></br>
+                                    <input id="sourceDensity" type="range" min=0 max=200><br/>
+                               </div>
+
+                                <div id = "sliderText" class="row justify-content-md-center">
+                                </br>
+                                    <p>Horizontal source velocity:</p></br>
+                                    <input id="horizontalSourceVelocity" type="range"min=-5 max=5><br/>
+                               </div>
+                               
+                                <div id = "sliderText" class="row justify-content-md-center">
+                                </br>
+                                    <p>Vertical source velocity:</p> 
+                                    <input id="verticalSourceVelocity" type="range" min=-5 max=5><br/>
+
+                               </div>
+                                
+                                <div id = "sliderText" class="row justify-content-md-center">
+                                </br><p>Iterations/definition:</p>     
+                                    <input id="iterations" type="range" onchange="field.setIterations(event.target.value)" min=1 max=75><br/>
+
+                               </div>
+                               
+                               <div>
+                                   <p>Known bugs and improvements: </p>
+                                   <ul>
+                                       <li>When fluids overlap sources excess density is generated</li>
+                                       <li>Independent source configurations</li>
+                                       <li>Different viscosity fluids</li>
+                                   </ul>
+                               </div>
+        
+
+                            </div>
+
+
+                    </div>
+            </div>
+    </body>
+</html>
